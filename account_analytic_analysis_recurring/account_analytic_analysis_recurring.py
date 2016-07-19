@@ -18,7 +18,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ##############################################################################
-from dateutil.relativedelta import relativedelta
 import datetime
 import logging
 import time
@@ -26,6 +25,7 @@ import time
 from openerp.osv import orm, fields
 from openerp.tools.translate import _
 from openerp.addons.decimal_precision import decimal_precision as dp
+from dateutil.relativedelta import relativedelta
 
 _logger = logging.getLogger(__name__)
 
@@ -132,6 +132,22 @@ class AccountAnalyticAccount(orm.Model):
              ('close', 'Closed'),
              ('cancelled', 'Cancelled')], 'Status', required=True,
             track_visibility='onchange'
+        ),
+        're_open_automatically': fields.boolean(
+            'Automatically re-open when the contract is closed '
+            'due to end date is reached'
+        ),
+        'recurring_interval_re_open': fields.integer(
+            'Reopen Automatically For',
+            help="Reopen For (Days/Week/Month/Year)"
+        ),
+        'recurring_rule_type_re_open': fields.selection(
+            [('days', 'Day(s)'),
+             ('weeks', 'Week(s)'),
+             ('months', 'Month(s)'),
+             ('years', 'Year(s)'),
+             ], 'Recurrency',
+            help="For how much time it will be re-open"
         ),
     }
 
@@ -289,3 +305,50 @@ class AccountAnalyticAccount(orm.Model):
                 context=context
             )
         return True
+
+    def cron_account_analytic_account(self, cr, uid, context=None):
+        context = dict(context or {})
+        current_date = time.strftime('%Y-%m-%d')
+        # domain to get contracts which will be expired today
+        domain = [
+            ('state', 'in', ['draft', 'open']),
+            ('date', '!=', False),
+            ('date', '<=', current_date),
+        ]
+        account_ids = self.search(
+            cr, uid, domain, context=context, order='name asc'
+        )
+        for account in self.browse(cr, uid, account_ids, context):
+            if not account.re_open_automatically:
+                continue
+            # Add time delta according with select value
+            period = account.recurring_interval_re_open
+            end_date = datetime.datetime.strptime(
+                account.date, '%Y-%m-%d'
+            )
+            if account.recurring_rule_type_re_open == 'days':
+                new_end_date = (
+                    end_date + relativedelta(days=period)
+                )
+            elif account.recurring_rule_type_re_open == 'weeks':
+                new_end_date = (
+                    end_date + relativedelta(weeks=period)
+                )
+            elif account.recurring_rule_type_re_open == 'months':
+                new_end_date = (
+                    end_date + relativedelta(months=period)
+                )
+            else:
+                new_end_date = (
+                    end_date + relativedelta(years=period)
+                )
+            # Set a new star date and end date in the contract
+            account.write(
+                {'date_start': current_date,
+                 'date': new_end_date.date().isoformat(),
+                 'state': 'open'}
+            )
+        # Continue with the others jobs
+        return super(AccountAnalyticAccount, self).cron_account_analytic_account(
+            cr, uid, context=context
+        )
