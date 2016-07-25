@@ -149,6 +149,12 @@ class AccountAnalyticAccount(orm.Model):
              ], 'Recurrency',
             help="For how much time it will be re-open"
         ),
+        'parent_id_address': fields.many2one('res.partner', 'Partner address'),
+        'use_parent_address': fields.boolean(
+            'Use Company Address',
+            help="Select this if you want to set company's address "
+            "information  for this contract"
+        ),
     }
 
     _defaults = {

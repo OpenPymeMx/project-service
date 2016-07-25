@@ -10,15 +10,24 @@
             <field name="arch" type="xml">
                 <group name='contract' position='after'>
                     <field name="re_open_automatically" class="oe_inline"/>
-                    <label for="re_open_automatically"/>                 
+                    <label for="re_open_automatically"/>
                     <group attrs="{'invisible': [('re_open_automatically','!=',True)]}">
                         <label for="recurring_interval_re_open"/>
                         <div> 
                             <field name="recurring_interval_re_open" class="oe_inline" attrs="{'required': [('re_open_automatically', '=', True)]}"/>
                             <field name="recurring_rule_type_re_open" class="oe_inline" attrs="{'required': [('re_open_automatically', '=', True)]}"/>
-                        </div> 
+                        </div>
                     </group>
                 </group>
+                <field name='partner_id' position="replace">
+                    <field name='partner_id'
+                        on_change="on_change_partner_id(partner_id, name)"
+                        domain="[('is_company', '=', True)]"/>
+                    <field name="use_parent_address" class="oe_edit_only"/>
+                    <field name="parent_id_address"
+                        attrs="{'invisible':[('use_parent_address', '=', True)]}"
+                        domain="[('parent_id', = 'partner_id')]"/>
+                </field>
             </field>
         </record>
 
